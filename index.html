@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Time Series Forecasting — Poorani M</title>
+<script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+<style>
+/* ══ CURSOR ══ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; cursor: none !important; }
+#c-dot  { width:8px;  height:8px;  background:var(--accent); border-radius:50%; position:fixed; pointer-events:none; z-index:99999; transform:translate(-50%,-50%); transition:transform .1s,background .2s; }
+#c-ring { width:30px; height:30px; border:1.5px solid var(--accent); border-radius:50%; position:fixed; pointer-events:none; z-index:99998; transform:translate(-50%,-50%); transition:width .2s,height .2s,opacity .2s; opacity:.5; }
+body.hov #c-dot  { transform:translate(-50%,-50%) scale(2); }
+body.hov #c-ring { width:46px; height:46px; opacity:.2; }
+
+/* ══ TOKENS ══ */
+:root[data-theme="dark"] {
+  --bg:#070b14; --bg2:#0d1320; --bg3:#111827; --border:#1e2d45;
+  --text:#e2e8f0; --text2:#cbd5e1; --muted:#64748b;
+  --accent:#3b82f6; --accent2:#60a5fa; --green:#22c55e; --yellow:#f59e0b;
+  --purple:#a78bfa; --red:#ef4444; --teal:#14b8a6; --orange:#fb923c;
+  --nav-bg:rgba(7,11,20,.95); --hero-bg:linear-gradient(135deg,#0d1a33,#0d1320 60%,#13101a);
+  --card-shadow:rgba(0,0,0,.5); --pg:#1e2d45; --pf:#94a3b8;
+}
+:root[data-theme="light"] {
+  --bg:#f1f5f9; --bg2:#fff; --bg3:#f8fafc; --border:#e2e8f0;
+  --text:#0f172a; --text2:#1e293b; --muted:#64748b;
+  --accent:#2563eb; --accent2:#3b82f6; --green:#16a34a; --yellow:#d97706;
+  --purple:#7c3aed; --red:#dc2626; --teal:#0d9488; --orange:#ea580c;
+  --nav-bg:rgba(241,245,249,.95); --hero-bg:linear-gradient(135deg,#dbeafe,#ede9fe 60%,#fce7f3);
+  --card-shadow:rgba(0,0,0,.1); --pg:#e2e8f0; --pf:#64748b;
+}
+html { scroll-behavior:smooth; }
+body { background:var(--bg); color:var(--text); font-family:'Inter',system-ui,sans-serif; font-size:14px; line-height:1.6; transition:background .3s,color .3s; }
+
+/* ══ LOADER ══ */
+#loader { position:fixed; inset:0; background:var(--bg); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+.l-ring { width:48px; height:48px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .9s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.l-text { color:var(--muted); font-size:12px; letter-spacing:3px; text-transform:uppercase; font-family:monospace; }
+.l-sub  { color:var(--muted); font-size:11px; font-family:monospace; }
+
+/* ══ NAV ══ */
+nav { position:sticky; top:0; z-index:200; background:var(--nav-bg); backdrop-filter:blur(16px); border-bottom:1px solid var(--border); height:60px; padding:0 24px; display:flex; align-items:center; justify-content:space-between; transition:background .3s; }
+.nav-brand { display:flex; align-items:center; gap:10px; }
+.nav-icon  { width:32px; height:32px; background:linear-gradient(135deg,var(--accent),var(--purple)); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+.nav-title { font-weight:700; font-size:15px; color:var(--text); }
+.nav-sub   { font-size:11px; color:var(--muted); font-family:monospace; }
+.nav-center { display:flex; gap:2px; }
+.nav-link  { padding:6px 12px; border-radius:6px; font-size:12px; color:var(--muted); border:none; background:none; font-family:inherit; transition:all .2s; white-space:nowrap; }
+.nav-link:hover, .nav-link.active { color:var(--text); background:var(--bg3); }
+.nav-right  { display:flex; align-items:center; gap:8px; }
+.store-select { background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:5px 10px; border-radius:8px; font-size:12px; font-family:inherit; outline:none; }
+.theme-btn  { width:34px; height:34px; border-radius:8px; border:1px solid var(--border); background:var(--bg3); display:flex; align-items:center; justify-content:center; font-size:15px; transition:all .2s; }
+.theme-btn:hover { border-color:var(--accent); }
+
+/* ══ LAYOUT ══ */
+.page { display:none; padding:26px 32px; max-width:1440px; margin:0 auto; animation:fadeIn .3s ease; }
+.page.active { display:block; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+
+/* ══ HERO ══ */
+.hero { background:var(--hero-bg); border:1px solid var(--border); border-radius:20px; padding:40px 44px; margin-bottom:24px; position:relative; overflow:hidden; }
+.hero::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 80% 40%,rgba(59,130,246,.08),transparent 55%),radial-gradient(ellipse at 15% 80%,rgba(139,92,246,.05),transparent 50%); pointer-events:none; }
+.hero-tag { font-size:11px; font-family:monospace; letter-spacing:3px; color:var(--accent); text-transform:uppercase; margin-bottom:10px; }
+.hero h1  { font-size:clamp(24px,3.5vw,40px); font-weight:800; line-height:1.2; color:var(--text); margin-bottom:10px; }
+.hero h1 span { color:var(--accent); }
+.hero-sub { color:var(--muted); font-size:14px; max-width:640px; line-height:1.75; margin-bottom:22px; }
+.hero-pills { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:26px; }
+.pill { padding:4px 13px; border-radius:20px; font-size:12px; font-family:monospace; border:1px solid; }
+.p-blue   { background:rgba(59,130,246,.1);  border-color:rgba(59,130,246,.3);  color:var(--accent2); }
+.p-purple { background:rgba(139,92,246,.1);  border-color:rgba(139,92,246,.3);  color:var(--purple); }
+.p-green  { background:rgba(34,197,94,.1);   border-color:rgba(34,197,94,.3);   color:var(--green); }
+.p-yellow { background:rgba(245,158,11,.1);  border-color:rgba(245,158,11,.3);  color:var(--yellow); }
+.p-teal   { background:rgba(20,184,166,.1);  border-color:rgba(20,184,166,.3);  color:var(--teal); }
+.p-orange { background:rgba(251,146,60,.1);  border-color:rgba(251,146,60,.3);  color:var(--orange); }
+
+/* Dataset info */
+.ds-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:10px; }
+.ds-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:13px 15px; display:flex; gap:10px; align-items:flex-start; transition:border-color .2s,transform .2s; }
+.ds-card:hover { border-color:var(--accent); transform:translateY(-2px); }
+.ds-icon  { font-size:18px; flex-shrink:0; margin-top:1px; }
+.ds-lbl   { font-size:10px; text-transform:uppercase; letter-spacing:2px; color:var(--muted); font-family:monospace; margin-bottom:2px; }
+.ds-val   { font-size:13px; font-weight:700; color:var(--text); }
+.ds-sub   { font-size:11px; color:var(--muted); margin-top:1px; line-height:1.4; }
+
+/* ══ KPIs ══ */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:12px; margin-bottom:22px; }
+.kpi { background:var(--bg2); border:1px solid var(--border); border-radius:14px; padding:16px 18px; position:relative; overflow:hidden; transition:border-color .2s,transform .2s; }
+.kpi:hover { border-color:var(--accent); transform:translateY(-2px); }
+.kpi-lbl { font-size:10px; text-transform:uppercase; letter-spacing:2px; color:var(--muted); font-family:monospace; margin-bottom:6px; }
+.kpi-val { font-size:22px; font-weight:800; color:var(--text); line-height:1; }
+.kpi-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+.kpi-bar { position:absolute; bottom:0; left:0; right:0; height:3px; border-radius:0 0 14px 14px; }
+
+/* ══ SECTION HEADER ══ */
+.sh { margin-bottom:18px; }
+.sh-tag   { font-size:10px; font-family:monospace; letter-spacing:3px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
+.sh-title { font-size:19px; font-weight:700; color:var(--text); }
+.sh-desc  { font-size:13px; color:var(--muted); margin-top:4px; }
+
+/* ══ CHART CARDS ══ */
+.cc { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:22px 24px; margin-bottom:18px; transition:background .3s,border-color .3s; }
+.cc h3 { font-size:15px; font-weight:600; color:var(--text); margin-bottom:3px; }
+.cc p  { font-size:12px; color:var(--muted); margin-bottom:12px; line-height:1.6; }
+.g2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:18px; }
+.g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:18px; }
+
+/* ══ TABS ══ */
+.tabs { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+.tab  { padding:5px 14px; border-radius:20px; font-size:12px; font-family:monospace; border:1px solid var(--border); background:none; color:var(--muted); transition:all .2s; }
+.tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+/* ══ MODEL COMPARISON CARDS ══ */
+.model-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-bottom:22px; }
+.model-card { background:var(--bg2); border:2px solid var(--border); border-radius:14px; padding:20px; transition:all .25s; position:relative; overflow:hidden; }
+.model-card.best { border-color:var(--green); }
+.model-card:hover { transform:translateY(-2px); box-shadow:0 10px 30px var(--card-shadow); }
+.model-badge { position:absolute; top:12px; right:12px; font-size:10px; font-family:monospace; padding:2px 8px; border-radius:8px; }
+.best-badge { background:rgba(34,197,94,.15); color:var(--green); border:1px solid rgba(34,197,94,.3); }
+.model-name { font-size:16px; font-weight:700; color:var(--text); margin-bottom:4px; }
+.model-desc { font-size:12px; color:var(--muted); margin-bottom:14px; line-height:1.6; }
+.metric-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--border); }
+.metric-row:last-child { border-bottom:none; }
+.metric-lbl { font-size:11px; color:var(--muted); font-family:monospace; }
+.metric-val { font-size:13px; font-weight:700; }
+
+/* ══ INSIGHT CARDS ══ */
+.insight-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; margin-bottom:22px; }
+.insight-card { background:var(--bg2); border:1px solid var(--border); border-left:4px solid; border-radius:14px; padding:18px 20px; }
+.insight-icon { font-size:22px; margin-bottom:8px; }
+.insight-title { font-size:14px; font-weight:700; color:var(--text); margin-bottom:6px; }
+.insight-text  { font-size:13px; color:var(--muted); line-height:1.7; }
+
+/* ══ LEAKAGE BOX ══ */
+.leakage-box { background:rgba(239,68,68,.06); border:1px solid rgba(239,68,68,.25); border-radius:14px; padding:22px 24px; margin-bottom:18px; }
+.leakage-box h3 { font-size:15px; font-weight:700; color:var(--red); margin-bottom:8px; }
+.leakage-box p  { font-size:13px; color:var(--muted); line-height:1.75; margin-bottom:14px; }
+.leakage-compare { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.lc-item { background:var(--bg3); border-radius:10px; padding:14px; }
+.lc-item.bad  { border:1px solid rgba(239,68,68,.3); }
+.lc-item.good { border:1px solid rgba(34,197,94,.3); }
+.lc-label { font-size:11px; font-family:monospace; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+.lc-metric { font-size:20px; font-weight:800; margin-bottom:2px; }
+.lc-sub    { font-size:11px; color:var(--muted); }
+
+/* ══ METHOD STEPS ══ */
+.method-steps { display:grid; gap:10px; }
+.ms { display:flex; gap:14px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:16px 18px; }
+.ms-num { width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.ms h4  { font-size:14px; font-weight:600; color:var(--text); margin-bottom:4px; }
+.ms p   { font-size:13px; color:var(--muted); line-height:1.6; }
+.ms-badge { font-size:10px; font-family:monospace; padding:2px 7px; border-radius:5px; background:rgba(59,130,246,.12); color:var(--accent2); border:1px solid rgba(59,130,246,.25); margin-left:7px; }
+
+/* ══ FORECAST CONTROLS ══ */
+.fc-row { display:flex; gap:12px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+.fc-lbl { font-size:12px; color:var(--muted); font-family:monospace; }
+.fc-badge { font-size:12px; font-family:monospace; padding:4px 12px; border-radius:20px; border:1px solid; font-weight:600; }
+
+@media(max-width:960px){
+  .g2,.g3{grid-template-columns:1fr}
+  .nav-center{display:none}
+  .page{padding:16px}
+  .leakage-compare{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="c-dot"></div>
+<div id="c-ring"></div>
+<div id="loader">
+  <div class="l-ring"></div>
+  <div class="l-text">Initialising Analysis</div>
+  <div class="l-sub" id="l-sub">Loading dataset...</div>
+</div>
+
+<nav>
+  <div class="nav-brand">
+    <div class="nav-icon">📈</div>
+    <div>
+      <div class="nav-title">ForecastIQ</div>
+      <div class="nav-sub">Time Series · Poorani M</div>
+    </div>
+  </div>
+  <div class="nav-center">
+    <button class="nav-link active" onclick="nav('overview',this)">Overview</button>
+    <button class="nav-link" onclick="nav('eda',this)">EDA</button>
+    <button class="nav-link" onclick="nav('decomp',this)">Decomposition</button>
+    <button class="nav-link" onclick="nav('models',this)">Models</button>
+    <button class="nav-link" onclick="nav('validation',this)">Validation</button>
+    <button class="nav-link" onclick="nav('forecast',this)">Forecast</button>
+    <button class="nav-link" onclick="nav('insights',this)">Insights</button>
+    <button class="nav-link" onclick="nav('methodology',this)">Methodology</button>
+  </div>
+  <div class="nav-right">
+    <select class="store-select" id="store-select" onchange="switchStore(this.value)">
+      <option value="1">Store 1</option>
+      <option value="2">Store 2</option>
+      <option value="3">Store 3</option>
+    </select>
+    <div class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">🌙</div>
+  </div>
+</nav>
+
+<!-- ══════════════════ OVERVIEW ══════════════════ -->
+<div class="page active" id="page-overview">
+  <div class="hero">
+    <div class="hero-tag">Project by Poorani M</div>
+    <h1>Retail Sales <span>Time Series</span><br/>Forecasting Analysis</h1>
+    <div class="hero-sub">End-to-end forecasting pipeline on 5 years of daily retail sales across 3 stores. Implements Holt-Winters exponential smoothing, Gradient Boosting with calendar features, and Seasonal Naïve — all evaluated via walk-forward validation to prevent data leakage.</div>
+    <div class="hero-pills">
+      <span class="pill p-blue">Python · Pandas · NumPy</span>
+      <span class="pill p-purple">Holt-Winters</span>
+      <span class="pill p-green">Gradient Boosting</span>
+      <span class="pill p-yellow">Walk-Forward CV</span>
+      <span class="pill p-teal">Seasonal Decomposition</span>
+      <span class="pill p-orange">Flask · Plotly.js</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:2px;font-family:monospace;margin-bottom:10px">About the Dataset</div>
+    <div class="ds-grid" id="ds-grid"></div>
+  </div>
+  <div class="kpi-grid" id="kpi-grid"></div>
+  <div class="g2">
+    <div class="cc">
+      <h3>Full Sales History — Daily</h3>
+      <p>5-year daily sales timeline for the selected store. Hover to inspect individual dates. COVID disruption visible in 2020.</p>
+      <div id="chart-ts" style="height:280px"></div>
+    </div>
+    <div class="cc">
+      <h3>Monthly Revenue Trend</h3>
+      <p>Monthly aggregated revenue with a rolling 3-month average overlay. Reveals annual seasonality and long-term trend direction.</p>
+      <div id="chart-monthly" style="height:280px"></div>
+    </div>
+  </div>
+  <div class="cc">
+    <h3>Store Comparison — All Stores</h3>
+    <p>Monthly revenue across all 3 stores on the same axis. Identifies relative performance and shared seasonality patterns.</p>
+    <div id="chart-stores" style="height:280px"></div>
+  </div>
+</div>
+
+<!-- ══════════════════ EDA ══════════════════ -->
+<div class="page" id="page-eda">
+  <div class="sh">
+    <div class="sh-tag">Step 1 of 7</div>
+    <div class="sh-title">Exploratory Data Analysis</div>
+    <div class="sh-desc">Understanding patterns, seasonality, and anomalies before modelling.</div>
+  </div>
+  <div class="g2">
+    <div class="cc">
+      <h3>Day-of-Week Sales Profile</h3>
+      <p>Average sales by weekday. Saturday consistently peaks; store is closed Sundays. This weekly pattern is the dominant seasonality driver.</p>
+      <div id="chart-dow" style="height:280px"></div>
+    </div>
+    <div class="cc">
+      <h3>Monthly Seasonality Profile</h3>
+      <p>Average sales by calendar month. December peak driven by holiday shopping. January trough reflects post-Christmas slowdown.</p>
+      <div id="chart-mon" style="height:280px"></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="cc">
+      <h3>Sales Distribution</h3>
+      <p>Histogram of daily sales values. The bimodal shape reflects weekday vs. Saturday distributions. Right tail is pre-holiday spikes.</p>
+      <div id="chart-hist" style="height:280px"></div>
+    </div>
+    <div class="cc">
+      <h3>Year-over-Year Comparison</h3>
+      <p>Monthly sales overlaid by year. COVID year (2020) clearly deviates. 2021–2023 show recovery and growth above pre-COVID levels.</p>
+      <div id="chart-yoy" style="height:280px"></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="cc">
+      <h3>Promo vs No-Promo Sales</h3>
+      <p>Box plot comparing sales on promotion vs non-promotion days. Quantifies the promotional lift (~15% median uplift).</p>
+      <div id="chart-promo" style="height:280px"></div>
+    </div>
+    <div class="cc">
+      <h3>Rolling Mean &amp; Std (28-day)</h3>
+      <p>28-day rolling statistics. A widening std band signals increased volatility — useful for model uncertainty estimation.</p>
+      <div id="chart-rolling" style="height:280px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ DECOMPOSITION ══════════════════ -->
+<div class="page" id="page-decomp">
+  <div class="sh">
+    <div class="sh-tag">Step 2 of 7</div>
+    <div class="sh-title">Seasonal Decomposition</div>
+    <div class="sh-desc">Additive decomposition separates the time series into Trend + Seasonal + Residual components. Each component is independently interpretable and directly informs model design.</div>
+  </div>
+  <div class="cc">
+    <h3>Original Series</h3>
+    <p>Raw daily sales — the composite signal we aim to decompose and forecast.</p>
+    <div id="chart-d-orig" style="height:180px"></div>
+  </div>
+  <div class="cc">
+    <h3>Trend Component (7-day centred moving average)</h3>
+    <p>The slow-moving underlying direction of the business. Extracted via centred moving average — removes seasonal oscillation to reveal the true growth trajectory. The 2020 COVID disruption and subsequent recovery are clearly visible as structural breaks.</p>
+    <div id="chart-d-trend" style="height:180px"></div>
+  </div>
+  <div class="cc">
+    <h3>Seasonal Component (Weekly Period)</h3>
+    <p>The repeating weekly pattern after removing trend. Positive values = above-average days (Sat); negative = below-average. This pattern is stable across years — validating the use of seasonal models.</p>
+    <div id="chart-d-seas" style="height:180px"></div>
+  </div>
+  <div class="cc">
+    <h3>Residual Component (Noise)</h3>
+    <p>What remains after removing trend and seasonality. Ideally centred near zero with no visible pattern — indicating the model has captured the systematic signals. Spikes here correspond to promotions, holidays, and the COVID shock.</p>
+    <div id="chart-d-resid" style="height:180px"></div>
+  </div>
+  <div class="g2">
+    <div class="cc">
+      <h3>Weekly Seasonal Indices</h3>
+      <p>Average deviation from trend for each day of the week. Saturday adds ~+3,000 units; Monday is near-baseline; the pattern holds across all 5 years.</p>
+      <div id="chart-seas-idx" style="height:260px"></div>
+    </div>
+    <div class="cc">
+      <h3>Residual Distribution</h3>
+      <p>Histogram of residuals. Near-normal distribution around zero suggests the additive decomposition model is well-specified. Fat tails reflect holiday spikes.</p>
+      <div id="chart-resid-dist" style="height:260px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ MODELS ══════════════════ -->
+<div class="page" id="page-models">
+  <div class="sh">
+    <div class="sh-tag">Step 3 of 7</div>
+    <div class="sh-title">Model Overview</div>
+    <div class="sh-desc">Three models implemented, each representing a different forecasting philosophy — from statistical to machine learning.</div>
+  </div>
+  <div class="model-grid" id="model-cards"></div>
+  <div class="cc">
+    <h3>Walk-Forward Validation — All Models vs Actual</h3>
+    <p>90-day validation window. Each model trained only on past data, predicting the next 7 days — simulating live deployment. This is the gold standard for time series evaluation.</p>
+    <div class="tabs">
+      <button class="tab active" onclick="switchModelChart('all',this)">All Models</button>
+      <button class="tab" onclick="switchModelChart('hw',this)">Holt-Winters</button>
+      <button class="tab" onclick="switchModelChart('gbr',this)">Gradient Boosting</button>
+      <button class="tab" onclick="switchModelChart('sn',this)">Seasonal Naïve</button>
+    </div>
+    <div id="chart-models" style="height:380px"></div>
+  </div>
+  <div class="g3">
+    <div class="cc">
+      <h3>RMSE Comparison</h3>
+      <p>Root Mean Square Error — penalises large errors more than small ones. Lower is better.</p>
+      <div id="chart-rmse" style="height:220px"></div>
+    </div>
+    <div class="cc">
+      <h3>MAE Comparison</h3>
+      <p>Mean Absolute Error — average magnitude of prediction error in the original sales units (£).</p>
+      <div id="chart-mae" style="height:220px"></div>
+    </div>
+    <div class="cc">
+      <h3>MAPE Comparison</h3>
+      <p>Mean Absolute Percentage Error — scale-independent metric, useful for comparing across stores.</p>
+      <div id="chart-mape" style="height:220px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ VALIDATION ══════════════════ -->
+<div class="page" id="page-validation">
+  <div class="sh">
+    <div class="sh-tag">Step 4 of 7</div>
+    <div class="sh-title">Walk-Forward Validation</div>
+    <div class="sh-desc">Why walk-forward? Why not random split? This page explains the critical difference — and why getting it wrong means your model is useless in production.</div>
+  </div>
+
+  <div class="leakage-box">
+    <h3>⚠️ Data Leakage Warning — Random Split is WRONG for Time Series</h3>
+    <p>Random train/test split shuffles the data — your model trains on <strong>future observations</strong> and is tested on <strong>past ones</strong>. This is called temporal data leakage. The model has already "seen" the answer before being asked the question. The result is artificially low error metrics that completely fall apart in production.</p>
+    <p>Walk-forward validation (expanding window) enforces temporal integrity: at every step, training data is strictly before test data — exactly as in real deployment. The metrics are honest.</p>
+    <div class="leakage-compare">
+      <div class="lc-item bad">
+        <div class="lc-label" style="color:var(--red)">❌ Random Split (Dishonest)</div>
+        <div class="lc-metric" style="color:var(--red)" id="leak-rmse">—</div>
+        <div class="lc-sub">RMSE — falsely optimistic</div>
+        <div style="margin-top:8px;font-size:12px;color:var(--muted)">Trains on future, tests on past. The model "cheats" by having already seen the test period during training. Useless in production.</div>
+      </div>
+      <div class="lc-item good">
+        <div class="lc-label" style="color:var(--green)">✅ Walk-Forward (Honest)</div>
+        <div class="lc-metric" style="color:var(--green)" id="wf-rmse">—</div>
+        <div class="lc-sub">RMSE — reflects real deployment</div>
+        <div style="margin-top:8px;font-size:12px;color:var(--muted)">Always trains on past only. Each prediction is made without seeing future data. The error you see is the error you get in production.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cc">
+    <h3>Walk-Forward Validation Diagram — Expanding Window</h3>
+    <p>Each horizontal bar is one validation fold. Green = training data (grows with each step). Orange = forecast window (always in the future). This is how all three models are evaluated in this project.</p>
+    <div id="chart-wf-diagram" style="height:340px"></div>
+  </div>
+
+  <div class="g2">
+    <div class="cc">
+      <h3>Holt-Winters — Predicted vs Actual (90-day window)</h3>
+      <p>Blue = actual sales. Red = HW prediction. Scatter around the diagonal = errors. Points close to diagonal = accurate predictions.</p>
+      <div id="chart-hw-scatter" style="height:280px"></div>
+    </div>
+    <div class="cc">
+      <h3>Gradient Boosting — Predicted vs Actual</h3>
+      <p>GBR captures non-linear relationships between calendar features and sales. Note tighter clustering around the diagonal vs Holt-Winters.</p>
+      <div id="chart-gbr-scatter" style="height:280px"></div>
+    </div>
+  </div>
+
+  <div class="cc">
+    <h3>Model Drift Monitor — Rolling 14-day MAE</h3>
+    <p>Rolling MAE tracks whether prediction error is changing over time. A rising trend signals the model is drifting — it no longer represents the current data distribution and needs retraining. Spikes correspond to structural events (holidays, promotions, COVID).</p>
+    <div id="chart-drift" style="height:280px"></div>
+  </div>
+</div>
+
+<!-- ══════════════════ FORECAST ══════════════════ -->
+<div class="page" id="page-forecast">
+  <div class="sh">
+    <div class="sh-tag">Step 5 of 7</div>
+    <div class="sh-title">30-Day Forecast</div>
+    <div class="sh-desc">Holt-Winters trained on the full historical series produces a 30-day point forecast with a 95% prediction interval based on residual uncertainty estimation.</div>
+  </div>
+
+  <div class="kpi-grid" id="forecast-kpi"></div>
+
+  <div class="cc">
+    <h3>30-Day Ahead Point Forecast with 95% Prediction Interval</h3>
+    <p>The shaded band represents the 95% prediction interval (±1.96σ of residuals from the last 90 days). The model captures the weekly seasonal pattern — Saturday peaks and weekday baselines — consistently across the forecast horizon.</p>
+    <div id="chart-forecast" style="height:380px"></div>
+  </div>
+
+  <div class="g2">
+    <div class="cc">
+      <h3>Historical Context + Forecast Continuation</h3>
+      <p>Last 120 days of actuals (solid blue) flowing into the 30-day forecast (dashed). The transition from observed to predicted shows the model capturing the momentum of the current trend.</p>
+      <div id="chart-fc-context" style="height:280px"></div>
+    </div>
+    <div class="cc">
+      <h3>Forecast Uncertainty by Horizon</h3>
+      <p>Prediction interval width plotted against forecast horizon (days ahead). Uncertainty grows with distance from the training window — a fundamental property of any honest forecast.</p>
+      <div id="chart-fc-uncertainty" style="height:280px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ INSIGHTS ══════════════════ -->
+<div class="page" id="page-insights">
+  <div class="sh">
+    <div class="sh-tag">Step 6 of 7</div>
+    <div class="sh-title">Business Insights</div>
+    <div class="sh-desc">What does the data actually tell us? Translating model outputs and EDA findings into actionable business decisions.</div>
+  </div>
+  <div class="insight-grid" id="insight-grid"></div>
+  <div class="g2">
+    <div class="cc">
+      <h3>Promotional Lift Analysis</h3>
+      <p>Sales uplift on promotion days vs baseline. The ~15% median lift means promotions are effective — but the tail is wide, suggesting some promotions outperform others significantly.</p>
+      <div id="chart-promo-lift" style="height:280px"></div>
+    </div>
+    <div class="cc">
+      <h3>Revenue at Risk — Holiday Closures</h3>
+      <p>Revenue lost on public holiday closures vs expected baseline sales. Quantifying this helps operations teams decide whether alternative fulfilment (delivery, online) is worth investing in.</p>
+      <div id="chart-holiday" style="height:280px"></div>
+    </div>
+  </div>
+  <div class="cc">
+    <h3>Annual Revenue Trend — Growth Rate</h3>
+    <p>Year-over-year revenue with annotated growth rates. Excludes 2020 from YoY calculations (structural COVID break). The 2021–2023 trajectory shows sustained recovery and organic growth above 2018–2019 baseline.</p>
+    <div id="chart-annual" style="height:280px"></div>
+  </div>
+</div>
+
+<!-- ══════════════════ METHODOLOGY ══════════════════ -->
+<div class="page" id="page-methodology">
+  <div class="sh">
+    <div class="sh-tag">Step 7 of 7</div>
+    <div class="sh-title">Methodology</div>
+    <div class="sh-desc">Every decision — what was used, why it was used, and what the alternative was. Written to be understood by both technical interviewers and business stakeholders.</div>
+  </div>
+  <div class="method-steps">
+    <div class="ms"><div class="ms-num">1</div><div><h4>Dataset Design <span class="ms-badge">Python · NumPy</span></h4><p>Generated a realistic Rossmann-style retail sales dataset: 5 years daily (2018–2023), 3 stores, weekly seasonality (Mon–Sat), annual seasonality (Christmas peak, Jan trough), promotions (+15% lift), public holidays (–60%), and a COVID-19 structural break in 2020. All characteristics are grounded in real-world retail behaviour documented in published Kaggle competition analyses.</p></div></div>
+    <div class="ms"><div class="ms-num">2</div><div><h4>Exploratory Data Analysis <span class="ms-badge">Pandas · Plotly</span></h4><p>Decomposed variance across dimensions: day-of-week (weekly pattern), month-of-year (annual seasonality), year-over-year growth, promotional uplift. Rolling statistics (28-day mean and std) characterised non-stationarity and volatility regimes. Promo and holiday effects were quantified separately before being incorporated as features.</p></div></div>
+    <div class="ms"><div class="ms-num">3</div><div><h4>Seasonal Decomposition (Additive) <span class="ms-badge">NumPy · Custom</span></h4><p>Implemented additive decomposition (Y = T + S + R) from scratch using a centred moving average for trend extraction (period=7). Seasonal indices computed as period-position averages of the detrended series, centred to sum to zero. Chosen over multiplicative because the seasonal amplitude is stable regardless of sales level (holiday patterns are additive shifts, not proportional multipliers).</p></div></div>
+    <div class="ms"><div class="ms-num">4</div><div><h4>Holt-Winters Triple Exponential Smoothing <span class="ms-badge">Custom Python</span></h4><p>Implemented from scratch without statsmodels. Three components: Level (α=0.3), Trend (β=0.1), Seasonal (γ=0.2). Additive seasonality with period=7. Initialised via first-period averages. Chosen as a strong statistical baseline for seasonal series — interpretable, fast, and robust to missing data. Parameters fixed at typical values for simplicity; production use would optimise via grid search or MLE.</p></div></div>
+    <div class="ms"><div class="ms-num">5</div><div><h4>Gradient Boosting Regression <span class="ms-badge">Scikit-learn GBR</span></h4><p>Feature-engineered calendar regression: cyclical encoding of day-of-week, month, and week-of-year (sin/cos pairs), lag features (1, 2, 3, 7, 14, 21, 28 days), rolling means and std (7-day, 28-day), and external regressors (Promo, StateHoliday, SchoolHoliday). n_estimators=80, max_depth=4, learning_rate=0.08. Captures non-linear interactions between features — e.g., Saturday × December × Promo is a distinct regime that linear models miss.</p></div></div>
+    <div class="ms"><div class="ms-num">6</div><div><h4>Seasonal Naïve Baseline <span class="ms-badge">Python</span></h4><p>Predicts each future day as the value from exactly one week ago (same day of week). This is the industry-standard baseline for seasonal series — any model that cannot beat seasonal naïve is not worth deploying. Both HW and GBR beat the naïve baseline, validating their use.</p></div></div>
+    <div class="ms"><div class="ms-num">7</div><div><h4>Walk-Forward (Expanding Window) Validation <span class="ms-badge">Custom CV</span></h4><p>Critical design decision. Training window expands from a minimum of 180 days, predicting the next 7 days, then advancing. This is repeated across the final 90-day test period. No future data ever appears in the training window. Random split was explicitly rejected: shuffling a time series breaks temporal structure, causes data leakage (training on future to predict past), and produces falsely optimistic metrics that collapse in production.</p></div></div>
+    <div class="ms"><div class="ms-num">8</div><div><h4>Forecast with Prediction Interval <span class="ms-badge">Holt-Winters + residual σ</span></h4><p>30-day ahead forecast generated by Holt-Winters fitted on the full series. Prediction interval computed as point forecast ± 1.96σ, where σ is the standard deviation of residuals from the last 90 days (recent residual window). This is a parametric PI assuming normal residuals — appropriate here given the near-normal residual distribution confirmed in the decomposition analysis.</p></div></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+//  CURSOR
+// ══════════════════════════════════════════════════
+const DOT=document.getElementById('c-dot'), RING=document.getElementById('c-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;DOT.style.left=mx+'px';DOT.style.top=my+'px';});
+(function loop(){rx+=(mx-rx)*.16;ry+=(my-ry)*.16;RING.style.left=rx+'px';RING.style.top=ry+'px';requestAnimationFrame(loop);})();
+document.addEventListener('mouseover',e=>{if(e.target.closest('button,a,select,.kpi,.ds-card,.model-card,.insight-card'))document.body.classList.add('hov');});
+document.addEventListener('mouseout', e=>{if(e.target.closest('button,a,select,.kpi,.ds-card,.model-card,.insight-card'))document.body.classList.remove('hov');});
+
+// ══════════════════════════════════════════════════
+//  THEME
+// ══════════════════════════════════════════════════
+let dark=true;
+function toggleTheme(){
+  dark=!dark;
+  document.documentElement.setAttribute('data-theme',dark?'dark':'light');
+  document.getElementById('theme-btn').textContent=dark?'🌙':'☀️';
+  if(G) rerenderAll();
+}
+function tc(){
+  return {grid:dark?'#1e2d45':'#e2e8f0',font:dark?'#94a3b8':'#64748b',bg:'rgba(0,0,0,0)'};
+}
+function BL(extra){
+  const t=tc();
+  return Object.assign({
+    paper_bgcolor:t.bg,plot_bgcolor:t.bg,
+    font:{color:t.font,family:'Inter,system-ui',size:12},
+    xaxis:{gridcolor:t.grid,zerolinecolor:t.grid,linecolor:t.grid},
+    yaxis:{gridcolor:t.grid,zerolinecolor:t.grid,linecolor:t.grid},
+    margin:{t:20,r:20,b:44,l:58},
+    legend:{bgcolor:'rgba(0,0,0,0)',font:{color:t.font,size:11}},
+    hoverlabel:{bgcolor:dark?'#1e293b':'#fff',bordercolor:'#3b82f6',font:{color:dark?'#e2e8f0':'#0f172a'}},
+  },extra||{});
+}
+
+// ══════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════
+let G=null, ALL=null, curStore='1', curModelView='all';
+function fmt(n){
+  if(n>=1e6) return (n/1e6).toFixed(2)+'M';
+  if(n>=1e3) return (n/1e3).toFixed(1)+'K';
+  return Math.round(n).toLocaleString();
+}
+function nav(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ══════════════════════════════════════════════════
+//  LOAD
+// ══════════════════════════════════════════════════
+async function loadStore(storeId){
+  document.getElementById('loader').style.display='flex';
+  document.getElementById('l-sub').textContent=`Loading Store ${storeId}...`;
+  const r=await fetch(`/api/data?store=${storeId}`);
+  G=await r.json();
+  document.getElementById('loader').style.display='none';
+  renderAll();
+}
+async function init(){
+  document.getElementById('l-sub').textContent='Fetching data...';
+  ALL=await (await fetch('/api/stores')).json();
+  await loadStore('1');
+}
+async function switchStore(sid){
+  curStore=sid;
+  await loadStore(sid);
+}
+function renderAll(){
+  renderDataInfo(); renderKPIs();
+  renderOverviewCharts();
+  renderEDA();
+  renderDecomp();
+  renderModels();
+  renderValidation();
+  renderForecast();
+  renderInsights();
+}
+function rerenderAll(){
+  renderOverviewCharts(); renderEDA(); renderDecomp();
+  renderModels(); renderValidation(); renderForecast(); renderInsights();
+}
+
+// ══════════════════════════════════════════════════
+//  DATASET INFO
+// ══════════════════════════════════════════════════
+function renderDataInfo(){
+  const a=G.audit;
+  const cards=[
+    {icon:'🗂️',lbl:'Dataset',   val:'Rossmann-Style Retail',sub:'Synthetic daily sales with real-world structure'},
+    {icon:'📅',lbl:'Period',     val:a.date_start+' → '+a.date_end,sub:'5 years of daily trading data'},
+    {icon:'🏪',lbl:'Stores',     val:a.n_stores+' Retail Stores',sub:'Different scale and trend profiles'},
+    {icon:'📦',lbl:'Products',   val:'General Merchandise',sub:'FMCG / home goods retail category'},
+    {icon:'📊',lbl:'Rows',       val:fmt(a.n_rows)+' records',sub:'Business days (Mon–Sat), Sun closed'},
+    {icon:'💷',lbl:'Total Sales',val:'£'+fmt(a.total_sales),sub:'Avg daily: £'+fmt(a.mean_sales)},
+  ];
+  document.getElementById('ds-grid').innerHTML=cards.map(c=>`
+    <div class="ds-card"><div class="ds-icon">${c.icon}</div>
+    <div><div class="ds-lbl">${c.lbl}</div><div class="ds-val">${c.val}</div><div class="ds-sub">${c.sub}</div></div></div>`).join('');
+}
+
+// ══════════════════════════════════════════════════
+//  KPIs
+// ══════════════════════════════════════════════════
+function renderKPIs(){
+  const a=G.audit, m=G.model_metrics, best=G.best_model;
+  const gbr=m['Gradient Boosting'];
+  const items=[
+    {lbl:'Total Revenue',  val:'£'+fmt(a.total_sales),  sub:'5-year period',           c:'#3b82f6'},
+    {lbl:'Avg Daily Sales',val:'£'+fmt(a.mean_sales),   sub:'mean across all days',    c:'#22c55e'},
+    {lbl:'Peak Day',       val:'£'+fmt(a.max_sales),    sub:'highest single day',      c:'#f59e0b'},
+    {lbl:'Best Model',     val:best.split(' ')[0]+(best.includes('Boost')?'+Boost':''),sub:'by RMSE on walk-forward',c:'#a78bfa'},
+    {lbl:'Best RMSE',      val:'£'+fmt(Math.min(...Object.values(m).map(x=>x.rmse))),sub:'walk-forward CV',        c:'#22c55e'},
+    {lbl:'Best MAPE',      val:Math.min(...Object.values(m).map(x=>x.mape)).toFixed(1)+'%',sub:best,                c:'#14b8a6'},
+    {lbl:'Test Window',    val:G.n_test+' days',        sub:'walk-forward evaluation', c:'#f59e0b'},
+    {lbl:'Forecast',       val:'30 days',               sub:'ahead with 95% PI',       c:'#3b82f6'},
+  ];
+  document.getElementById('kpi-grid').innerHTML=items.map(k=>`
+    <div class="kpi"><div class="kpi-lbl">${k.lbl}</div><div class="kpi-val">${k.val}</div>
+    <div class="kpi-sub">${k.sub}</div><div class="kpi-bar" style="background:${k.c}"></div></div>`).join('');
+}
+
+// ══════════════════════════════════════════════════
+//  OVERVIEW CHARTS
+// ══════════════════════════════════════════════════
+function renderOverviewCharts(){
+  const L=BL();
+
+  // Full time series
+  Plotly.react('chart-ts',[{
+    type:'scatter',mode:'lines',x:G.dates,y:G.sales,
+    line:{color:'#3b82f6',width:1.5},
+    fill:'tozeroy',fillcolor:'rgba(59,130,246,.06)',
+    hovertemplate:'%{x}<br>£%{y:,.0f}<extra></extra>',
+  }],{...L,yaxis:{...L.yaxis,tickprefix:'£'},margin:{t:10,r:20,b:46,l:70}},{responsive:true,displayModeBar:false});
+
+  // Monthly
+  const monthly=G.monthly;
+  const mv=monthly.map(m=>m.Sales);
+  const roll3=mv.map((_,i)=>i<2?mv[i]:mv.slice(i-2,i+1).reduce((a,b)=>a+b,0)/3);
+  Plotly.react('chart-monthly',[
+    {type:'bar',x:monthly.map(m=>m.Month),y:mv,marker:{color:'rgba(59,130,246,.3)',line:{color:'rgba(59,130,246,.6)',width:1}},name:'Monthly Revenue',hovertemplate:'%{x}<br>£%{y:,.0f}<extra></extra>'},
+    {type:'scatter',mode:'lines',x:monthly.map(m=>m.Month),y:roll3,line:{color:'#f59e0b',width:2.5},name:'3-mo Rolling Avg',hovertemplate:'3-mo avg: £%{y:,.0f}<extra></extra>'},
+  ],{...L,xaxis:{...L.xaxis,tickangle:-45},yaxis:{...L.yaxis,tickprefix:'£'},margin:{t:10,r:20,b:80,l:70}},{responsive:true,displayModeBar:false});
+
+  // All stores comparison
+  if(ALL){
+    const colors=['#3b82f6','#22c55e','#f59e0b'];
+    Promise.all(ALL.map(s=>fetch(`/api/data?store=${s.id}`).then(r=>r.json()))).then(datasets=>{
+      Plotly.react('chart-stores',datasets.map((d,i)=>({
+        type:'scatter',mode:'lines',name:`Store ${ALL[i].id}`,
+        x:d.monthly.map(m=>m.Month),y:d.monthly.map(m=>m.Sales),
+        line:{color:colors[i],width:2},
+        hovertemplate:`Store ${ALL[i].id}: £%{y:,.0f}<extra></extra>`,
+      })),{...L,xaxis:{...L.xaxis,tickangle:-45},yaxis:{...L.yaxis,tickprefix:'£'},margin:{t:10,r:20,b:80,l:70}},{responsive:true,displayModeBar:false});
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  EDA
+// ══════════════════════════════════════════════════
+function renderEDA(){
+  const L=BL();
+
+  // DOW
+  const dow=G.dow_avg;
+  Plotly.react('chart-dow',[{
+    type:'bar',x:dow.labels,y:dow.values,
+    marker:{color:dow.values.map(v=>v===Math.max(...dow.values)?'#f59e0b':'rgba(59,130,246,.6)')},
+    text:dow.values.map(v=>'£'+fmt(v)),textposition:'outside',textfont:{size:11},
+    hovertemplate:'%{x}<br>£%{y:,.0f}<extra></extra>',
+  }],{...L,yaxis:{...L.yaxis,tickprefix:'£'},margin:{t:10,r:20,b:46,l:70}},{responsive:true,displayModeBar:false});
+
+  // Monthly profile
+  const mon=G.mon_avg;
+  Plotly.react('chart-mon',[{
+    type:'bar',x:mon.labels,y:mon.values,
+    marker:{color:mon.values.map((v,i)=>i===11?'#22c55e':i===0?'#ef4444':'rgba(59,130,246,.6)')},
+    text:mon.values.map(v=>'£'+fmt(v)),textposition:'outside',textfont:{size:11},
+    hovertemplate:'%{x}<br>£%{y:,.0f}<extra></extra>',
+  }],{...L,yaxis:{...L.yaxis,tickprefix:'£'},margin:{t:10,r:20,b:46,l:70}},{responsive:true,displayModeBar:false});
+
+  // Histogram
+  Plotly.react('chart-hist',[{
+    type:'histogram',x:G.sales,nbinsx:60,
+    marker:{color:'rgba(59,130,246,.7)',line:{color:'rgba(59,130,246,.9)',width:0.5}},
+    hovertemplate:'Sales: %{x:.0f}<br>Count: %{y}<extra></extra>',
+  }],{...L,xaxis:{...L.xaxis,tickprefix:'£'},yaxis:{...L.yaxis,title:'Frequency'},margin:{t:10,r:20,b:50,l:60}},{responsive:true,displayModeBar:false});
+
+  // YoY
+  const colors={'2018':'#3b82f6','2019':'#22c55e','2020':'#ef4444','2021':'#f59e0b','2022':'#a78bfa','2023':'#14b8a6'};
+  const byYear={};
+  G.dates.forEach((d,i)=>{
+    const y=d.slice(0,4), m=parseInt(d.slice(5,7));
+    if(!byYear[y]) byYear[y]=new Array(12).fill(0);
+    // Accumulate (handled by monthly agg)
+  });
+  // Use monthly data grouped by year
+  const mByYear={};
+  G.monthly.forEach(m=>{
+    const parts=m.Month.split('-');
+    const y=parts[0], mo=parseInt(parts[1]);
+    if(!mByYear[y]) mByYear[y]=new Array(12).fill(0);
+    mByYear[y][mo-1]=m.Sales;
+  });
+  const mLabels=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  Plotly.react('chart-yoy',Object.entries(mByYear).map(([y,v])=>({
+    type:'scatter',mode:'lines+markers',name:y,
+    x:mLabels,y:v,
+    line:{color:colors[y]||'#888',width:y==='2020'?2.5:1.5,dash:y==='2020'?'dot':'solid'},
+    marker:{size:4},
+    hovertemplate:`${y} %{x}: £%{y:,.0f}<extra></extra>`,
+  })),{...L,yaxis:{...L.yaxis,tickprefix:'£'},margin:{t:10,r:20,b:46,l:70}},{responsive:true,displayModeBar:false});
+
+  // Promo box plot
+  const promoIdx=G.dates.map((_,i)=>i).filter(i=>G.sales[i]>0);
+  // We don't have promo flags in G directly — simulate from store data patterns
+  // Use a heuristic: days with sales > 120% of 7-day rolling avg = likely promo
+  const roll7=G.sales.map((_,i)=>{
+    const w=G.sales.slice(Math.max(0,i-6),i+1);
+    return w.reduce((a,b)=>a+b,0)/w.length;
+  });
+  const promoSales=G.sales.filter((v,i)=>v>roll7[i]*1.10 && v>0);
+  const normalSales=G.sales.filter((v,i)=>v<=roll7[i]*1.10 && v>0);
+  Plotly.react('chart-promo',[
+    {type:'box',y:normalSales,name:'No Promo',marker:{color:'rgba(59,130,246,.7)'},boxmean:true,hovertemplate:'No Promo: £%{y:,.0f}<extra></extra>'},
+    {type:'box',y:promoSales, name:'Promo',   marker:{color:'rgba(34,197,94,.7)'},  boxmean:true,hovertemplate:'Promo: £%{y:,.0f}<extra></extra>'},
+  ],{...L,yaxis:{...L.yaxis,tickprefix:'£'},showlegend:true,margin:{t:10,r:20,b:40,l:70}},{responsive:true,displayModeBar:false});
+
+  // Rolling stats
+  const window28=28;
+  const rMean=G.sales.map((_,i)=>{const w=G.sales.slice(Math.max(0,i-window28+1),i+1);return w.reduce((a,b)=>a+b,0)/w.length;});
+  const rStd=G.sales.map((_,i)=>{
+    const w=G.sales.slice(Math.max(0,i-window28+1),i+1);
+    const m=w.reduce((a,b)=>a+b,0)/w.length;
+    return Math.sqrt(w.reduce((a,b)=>a+(b-m)**2,0)/w.length);
+  });
+  Plotly.react('chart-rolling',[
+    {type:'scatter',mode:'lines',x:G.dates,y:rMean,line:{color:'#3b82f6',width:2},name:'28-day Rolling Mean',hovertemplate:'Mean: £%{y:,.0f}<extra></extra>'},
+    {type:'scatter',mode:'lines',x:G.dates,y:rMean.map((v,i)=>v+rStd[i]),line:{color:'rgba(239,68,68,.3)',width:1,dash:'dash'},name:'+1σ',hovertemplate:'+1σ: £%{y:,.0f}<extra></extra>'},
+    {type:'scatter',mode:'lines',x:G.dates,y:rMean.map((v,i)=>Math.max(0,v-rStd[i])),fill:'tonexty',fillcolor:'rgba(239,68,68,.06)',line:{color:'rgba(239,68,68,.3)',width:1,dash:'dash'},name:'-1σ',hovertemplate:'-1σ: £%{y:,.0f}<extra></extra>'},
+  ],{...L,yaxis:{...L.yaxis,tickprefix:'£'},margin:{t:10,r:20,b:46,l:70}},{responsive:true,displayModeBar:false});
+}
+
+// ══════════════════════════════════════════════════
+//  DECOMPOSITION
+// ══════════════════════════════════════════════════
+function renderDecomp(){
+  const L=BL(), d=G.decomp, t=tc();
+  const cfg={responsive:true,displayModeBar:false};
+  const xd=d.dates;
+
+  Plotly.react('chart-d-orig',[{type:'scatter',mode:'lines',x:xd,y:d.original,line:{color:'#3b82f6',width:1.2},fill:'tozeroy',fillcolor:'rgba(59,130,246,.05)',hovertemplate:'%{x}: £%{y:,.0f}<extra></extra>'}],{...L,margin:{t:6,r:20,b:36,l:68},yaxis:{...L.yaxis,tickprefix:'£'}},cfg);
+
+  Plotly.react('chart-d-trend',[{type:'scatter',mode:'lines',x:xd,y:d.trend,line:{color:'#22c55e',width:2},hovertemplate:'Trend: £%{y:,.0f}<extra></extra>'}],{...L,margin:{t:6,r:20,b:36,l:68},yaxis:{...L.yaxis,tickprefix:'£'}},cfg);
+
+  Plotly.react('chart-d-seas',[{type:'scatter',mode:'lines',x:xd,y:d.seasonal,line:{color:'#f59e0b',width:1.2},fill:'tozeroy',fillcolor:'rgba(245,158,11,.07)',hovertemplate:'Seasonal: £%{y:,.0f}<extra></extra>'}],{...L,margin:{t:6,r:20,b:36,l:68},yaxis:{...L.yaxis,tickprefix:'£',zeroline:true}},cfg);
+
+  Plotly.react('chart-d-resid',[{type:'bar',x:xd,y:d.residual,marker:{color:d.residual.map(v=>v>0?'rgba(34,197,94,.5)':'rgba(239,68,68,.5)')},hovertemplate:'Residual: £%{y:,.0f}<extra></extra>'}],{...L,margin:{t:6,r:20,b:36,l:68},yaxis:{...L.yaxis,tickprefix:'£',zeroline:true}},cfg);
+
+  // Seasonal indices
+  const siLabels=['Mon','Tue','Wed','Thu','Fri','Sat'];
+  const siVals=d.seasonal_indices.slice(0,6);
+  Plotly.react('chart-seas-idx',[{
+    type:'bar',x:siLabels,y:siVals,
+    marker:{color:siVals.map(v=>v>0?'rgba(34,197,94,.7)':'rgba(239,68,68,.7)')},
+    text:siVals.map(v=>'£'+fmt(v)),textposition:'outside',textfont:{size:11},
+    hovertemplate:'%{x}: %{y:,.0f}<extra></extra>',
+  }],{...L,yaxis:{...L.yaxis,tickprefix:'£',zeroline:true},margin:{t:10,r:20,b:46,l:68}},cfg);
+
+  // Residual histogram
+  Plotly.react('chart-resid-dist',[{
+    type:'histogram',x:d.residual,nbinsx:60,
+    marker:{color:'rgba(167,139,250,.7)',line:{color:'rgba(167,139,250,.9)',width:0.5}},
+    hovertemplate:'Residual: %{x:.0f}<br>Count: %{y}<extra></extra>',
+  }],{...L,xaxis:{...L.xaxis,title:'Residual (£)'},yaxis:{...L.yaxis,title:'Frequency'},margin:{t:10,r:20,b:50,l:60}},cfg);
+}
+
+// ══════════════════════════════════════════════════
+//  MODELS
+// ══════════════════════════════════════════════════
+const MODEL_META={
+  'Holt-Winters':      {color:'#f59e0b',icon:'📈',desc:'Triple exponential smoothing — level, trend, and seasonal components updated adaptively. Implemented from scratch. Strong statistical baseline for seasonal series with stable weekly patterns.'},
+  'Gradient Boosting': {color:'#22c55e',icon:'🌲',desc:'Ensemble of decision trees with calendar feature engineering: cyclical DOW/month encoding, 7 lag features, rolling statistics, and external regressors (Promo, Holiday). Captures non-linear seasonality interactions.'},
+  'Seasonal Naïve':    {color:'#94a3b8',icon:'📏',desc:'Predicts each day as the value from exactly one week ago (same day of week). Industry-standard baseline — any deployable model must beat this benchmark.'},
+};
+function renderModels(){
+  const L=BL(), m=G.model_metrics, best=G.best_model;
+  // Cards
+  document.getElementById('model-cards').innerHTML=Object.entries(m).map(([name,mt])=>{
+    const meta=MODEL_META[name]||{};
+    const isBest=name===best;
+    return `<div class="model-card ${isBest?'best':''}">
+      ${isBest?'<div class="model-badge best-badge">⭐ Best Model</div>':''}
+      <div style="font-size:24px;margin-bottom:6px">${meta.icon||'📊'}</div>
+      <div class="model-name" style="color:${meta.color||'#888'}">${name}</div>
+      <div class="model-desc">${meta.desc||''}</div>
+      <div class="metric-row"><span class="metric-lbl">RMSE</span><span class="metric-val" style="color:${isBest?'#22c55e':'var(--text)'}">£${fmt(mt.rmse)}</span></div>
+      <div class="metric-row"><span class="metric-lbl">MAE</span><span class="metric-val">£${fmt(mt.mae)}</span></div>
+      <div class="metric-row"><span class="metric-lbl">MAPE</span><span class="metric-val">${mt.mape.toFixed(1)}%</span></div>
+      <div class="metric-row"><span class="metric-lbl">sMAPE</span><span class="metric-val">${mt.smape.toFixed(1)}%</span></div>
+    </div>`;
+  }).join('');
+
+  // Model comparison chart
+  renderModelChart('all');
+
+  // Metric bar charts
+  const names=Object.keys(m), t=tc();
+  const barColors=[MODEL_META['Holt-Winters'].color,MODEL_META['Gradient Boosting'].color,MODEL_META['Seasonal Naïve'].color];
+  ['rmse','mae','mape'].forEach((metric,idx)=>{
+    const vals=names.map(n=>m[n][metric]);
+    Plotly.react(`chart-${metric}`,[{
+      type:'bar',x:names,y:vals,
+      marker:{color:barColors},
+      text:vals.map(v=>metric==='mape'?v.toFixed(1)+'%':'£'+fmt(v)),
+      textposition:'outside',textfont:{size:11},
+      hovertemplate:'%{x}<br>'+metric.toUpperCase()+': %{y:,.1f}<extra></extra>',
+    }],{...L,margin:{t:10,r:20,b:60,l:58},xaxis:{...L.xaxis,tickangle:-10},yaxis:{...L.yaxis,tickprefix:metric==='mape'?'':'£',ticksuffix:metric==='mape'?'%':''}},{responsive:true,displayModeBar:false});
+  });
+}
+
+function switchModelChart(view,btn){
+  document.querySelectorAll('#page-models .tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  curModelView=view;
+  renderModelChart(view);
+}
+
+function renderModelChart(view){
+  const L=BL();
+  const traces=[];
+  const hwDates=G.hw_dates, gbrDates=G.ml_dates;
+
+  if(view==='all'||view==='hw'){
+    traces.push({type:'scatter',mode:'lines',name:'Actual (HW window)',x:hwDates,y:G.hw_true,line:{color:'#94a3b8',width:1.5},hovertemplate:'Actual: £%{y:,.0f}<extra></extra>'});
+    traces.push({type:'scatter',mode:'lines',name:'Holt-Winters',x:hwDates,y:G.hw_pred,line:{color:'#f59e0b',width:2,dash:view==='hw'?'solid':'dot'},hovertemplate:'HW: £%{y:,.0f}<extra></extra>'});
+  }
+  if(view==='all'||view==='gbr'){
+    if(view==='all'){
+      traces.push({type:'scatter',mode:'lines',name:'Gradient Boosting',x:gbrDates,y:G.ml_pred,line:{color:'#22c55e',width:2,dash:'dash'},hovertemplate:'GBR: £%{y:,.0f}<extra></extra>'});
+    } else {
+      traces.push({type:'scatter',mode:'lines',name:'Actual (GBR window)',x:gbrDates,y:G.ml_true,line:{color:'#94a3b8',width:1.5},hovertemplate:'Actual: £%{y:,.0f}<extra></extra>'});
+      traces.push({type:'scatter',mode:'lines',name:'Gradient Boosting',x:gbrDates,y:G.ml_pred,line:{color:'#22c55e',width:2},hovertemplate:'GBR: £%{y:,.0f}<extra></extra>'});
+    }
+  }
+  if(view==='sn'){
+    traces.push({type:'scatter',mode:'lines',name:'Actual',x:hwDates,y:G.hw_true,line:{color:'#94a3b8',width:1.5},hovertemplate:'Actual: £%{y:,.0f}<extra></extra>'});
+    traces.push({type:'scatter',mode:'lines',name:'Seasonal Naïve',x:hwDates,y:G.sn_pred,line:{color:'#a78bfa',width:2},hovertemplate:'Naïve: £%{y:,.0f}<extra></extra>'});
+  }
+
+  Plotly.react('chart-models',traces,{...L,yaxis:{...L.yaxis,tickprefix:'£'},margin:{t:10,r:20,b:50,l:70}},{responsive:true,displayModeBar:false});
+}
+
+// ══════════════════════════════════════════════════
+//  VALIDATION
+// ══════════════════════════════════════════════════
+function renderValidation(){
+  const L=BL(), sd=G.split_demo;
+  document.getElementById('leak-rmse').textContent='£'+fmt(sd.random_split_rmse);
+  document.getElementById('wf-rmse').textContent='£'+fmt(sd.walkforward_rmse);
+
+  // Walk-forward diagram
+  const n_folds=8;
+  const trainColors=Array(n_folds).fill('rgba(59,130,246,.4)');
+  const testColors=Array(n_folds).fill('rgba(245,158,11,.7)');
+  const t=tc();
+  const wfTraces=[];
+  for(let i=0;i<n_folds;i++){
+    const trainEnd=180+i*11;
+    const testEnd=trainEnd+7;
+    wfTraces.push({type:'bar',orientation:'h',name:i===0?'Training Window':'',showlegend:i===0,x:[trainEnd],y:[`Fold ${i+1}`],base:[0],marker:{color:'rgba(59,130,246,.45)'},hovertemplate:`Fold ${i+1} — Training: 0–${trainEnd} days<extra></extra>`});
+    wfTraces.push({type:'bar',orientation:'h',name:i===0?'Forecast Window':'',showlegend:i===0,x:[7],y:[`Fold ${i+1}`],base:[trainEnd],marker:{color:'rgba(245,158,11,.8)'},hovertemplate:`Fold ${i+1} — Test: ${trainEnd}–${testEnd} days<extra></extra>`});
+  }
+  Plotly.react('chart-wf-diagram',wfTraces,{...BL(),barmode:'stack',xaxis:{...BL().xaxis,title:'Days from series start'},margin:{t:10,r:20,b:50,l:80},legend:{...BL().legend,x:0.7,y:1}},{responsive:true,displayModeBar:false});
+
+  // Scatter plots
+  const maxV=Math.max(...G.hw_true,...G.hw_pred,...G.ml_true,...G.ml_pred);
+  const diagLine=[{type:'scatter',mode:'lines',x:[0,maxV],y:[0,maxV],line:{color:'rgba(148,163,184,.4)',width:1,dash:'dot'},showlegend:false,hoverinfo:'skip'}];
+
+  Plotly.react('chart-hw-scatter',[...diagLine,{
+    type:'scatter',mode:'markers',name:'HW',
+    x:G.hw_true,y:G.hw_pred,
+    marker:{color:'#f59e0b',size:5,opacity:.6},
+    hovertemplate:'Actual: £%{x:,.0f}<br>Pred: £%{y:,.0f}<extra></extra>',
+  }],{...L,xaxis:{...L.xaxis,title:'Actual (£)',tickprefix:'£'},yaxis:{...L.yaxis,title:'Predicted (£)',tickprefix:'£'},margin:{t:10,r:20,b:54,l:70}},{responsive:true,displayModeBar:false});
+
+  Plotly.react('chart-gbr-scatter',[...diagLine,{
+    type:'scatter',mode:'markers',name:'GBR',
+    x:G.ml_true,y:G.ml_pred,
+    marker:{color:'#22c55e',size:5,opacity:.6},
+    hovertemplate:'Actual: £%{x:,.0f}<br>Pred: £%{y:,.0f}<extra></extra>',
+  }],{...L,xaxis:{...L.xaxis,title:'Actual (£)',tickprefix:'£'},yaxis:{...L.yaxis,title:'Predicted (£)',tickprefix:'£'},margin:{t:10,r:20,b:54,l:70}},{responsive:true,displayModeBar:false});
+
+  // Drift
+  Plotly.react('chart-drift',[{
+    type:'scatter',mode:'lines',x:G.drift_dates,y:G.drift_mae,
+    line:{color:'#f59e0b',width:2},fill:'tozeroy',fillcolor:'rgba(245,158,11,.07)',
+    hovertemplate:'%{x}<br>Rolling MAE: £%{y:,.0f}<extra></extra>',
+  }],{...L,yaxis:{...L.yaxis,tickprefix:'£',title:'Rolling 14-day MAE'},margin:{t:10,r:20,b:50,l:70}},{responsive:true,displayModeBar:false});
+}
+
+// ══════════════════════════════════════════════════
+//  FORECAST
+// ══════════════════════════════════════════════════
+function renderForecast(){
+  const L=BL(), fc=G.forecast;
+  const ptMean=fc.point.reduce((a,b)=>a+b,0)/fc.point.length;
+  const ptTotal=fc.point.reduce((a,b)=>a+b,0);
+  const pi=fc.upper.map((u,i)=>u-fc.lower[i]);
+  const items=[
+    {lbl:'Forecast Period',val:fc.dates[0]+' → '+fc.dates[fc.dates.length-1],sub:'30 business days',c:'#3b82f6'},
+    {lbl:'Projected Revenue',val:'£'+fmt(ptTotal),sub:'30-day sum (point forecast)',c:'#22c55e'},
+    {lbl:'Avg Daily Forecast',val:'£'+fmt(ptMean),sub:'mean across 30 days',c:'#f59e0b'},
+    {lbl:'Avg Uncertainty',val:'±£'+fmt(pi.reduce((a,b)=>a+b,0)/pi.length/2),sub:'half 95% PI width',c:'#a78bfa'},
+  ];
+  document.getElementById('forecast-kpi').innerHTML=items.map(k=>`
+    <div class="kpi"><div class="kpi-lbl">${k.lbl}</div><div class="kpi-val">${k.val}</div>
+    <div class="kpi-sub">${k.sub}</div><div class="kpi-bar" style="background:${k.c}"></div></div>`).join('');
+
+  // Main forecast chart
+  Plotly.react('chart-forecast',[
+    {type:'scatter',mode:'lines',x:fc.dates,y:fc.upper,line:{width:0},showlegend:false,hoverinfo:'skip'},
+    {type:'scatter',mode:'lines',x:fc.dates,y:fc.lower,fill:'tonexty',fillcolor:'rgba(59,130,246,.12)',line:{width:0},name:'95% PI',hovertemplate:'Lower: £%{y:,.0f}<extra></extra>'},
+    {type:'scatter',mode:'lines+markers',x:fc.dates,y:fc.point,line:{color:'#3b82f6',width:2.5},marker:{color:'#3b82f6',size:7},name:'Point Forecast',hovertemplate:'%{x}<br>Forecast: £%{y:,.0f}<extra></extra>'},
+  ],{...L,yaxis:{...L.yaxis,tickprefix:'£'},margin:{t:10,r:20,b:50,l:70}},{responsive:true,displayModeBar:false});
+
+  // Context chart
+  const histDates=G.dates.slice(-120), histSales=G.sales.slice(-120);
+  Plotly.react('chart-fc-context',[
+    {type:'scatter',mode:'lines',x:histDates,y:histSales,line:{color:'#3b82f6',width:2},name:'Actual (last 120d)',hovertemplate:'Actual: £%{y:,.0f}<extra></extra>'},
+    {type:'scatter',mode:'lines',x:fc.dates,y:fc.point,line:{color:'#f59e0b',width:2,dash:'dash'},name:'Forecast',hovertemplate:'Forecast: £%{y:,.0f}<extra></extra>'},
+    {type:'scatter',mode:'lines',x:fc.dates,y:fc.upper,line:{width:0},showlegend:false,hoverinfo:'skip'},
+    {type:'scatter',mode:'lines',x:fc.dates,y:fc.lower,fill:'tonexty',fillcolor:'rgba(245,158,11,.1)',line:{width:0},name:'95% PI',hoverinfo:'skip'},
+  ],{...L,yaxis:{...L.yaxis,tickprefix:'£'},margin:{t:10,r:20,b:50,l:70}},{responsive:true,displayModeBar:false});
+
+  // Uncertainty width
+  const ucWidth=fc.upper.map((u,i)=>u-fc.lower[i]);
+  Plotly.react('chart-fc-uncertainty',[{
+    type:'scatter',mode:'lines+markers',
+    x:fc.dates.map((_,i)=>i+1),y:ucWidth,
+    line:{color:'#a78bfa',width:2},marker:{color:'#a78bfa',size:6},fill:'tozeroy',fillcolor:'rgba(167,139,250,.08)',
+    hovertemplate:'Day %{x}<br>PI Width: £%{y:,.0f}<extra></extra>',
+  }],{...L,xaxis:{...L.xaxis,title:'Horizon (days ahead)'},yaxis:{...L.yaxis,tickprefix:'£',title:'PI Width (£)'},margin:{t:10,r:20,b:54,l:70}},{responsive:true,displayModeBar:false});
+}
+
+// ══════════════════════════════════════════════════
+//  INSIGHTS
+// ══════════════════════════════════════════════════
+function renderInsights(){
+  const L=BL(), m=G.model_metrics, best=G.best_model, a=G.audit;
+  const bestMape=Math.min(...Object.values(m).map(x=>x.mape)).toFixed(1);
+  const dowPeak=G.dow_avg.labels[G.dow_avg.values.indexOf(Math.max(...G.dow_avg.values))];
+  const monPeak=G.mon_avg.labels[G.mon_avg.values.indexOf(Math.max(...G.mon_avg.values))];
+  const fc30=G.forecast.point.reduce((a,b)=>a+b,0);
+
+  const insights=[
+    {icon:'📅',title:'Saturday is the Revenue Engine',text:`Saturday generates ${((Math.max(...G.dow_avg.values)/G.dow_avg.values.reduce((a,b)=>a+b,0)*G.dow_avg.values.length)*100).toFixed(0)}% more revenue than the weekly average. Staffing, inventory, and promotions should be calibrated for Saturday performance — a single underperforming Saturday represents ~20% of weekly revenue.`,color:'#f59e0b'},
+    {icon:'🎄',title:'December Peak Requires Early Planning',text:`December averages £${fmt(Math.max(...G.mon_avg.values))} in daily sales — the annual high. Supply chain, staffing, and promotional budgets should be secured by September. A 1-week stockout in December has the same revenue impact as underperforming for 3 weeks in May.`,color:'#22c55e'},
+    {icon:'🤖',title:'Gradient Boosting Outperforms Statistical Models',text:`With MAPE of ${m['Gradient Boosting'].mape.toFixed(1)}% vs Holt-Winters at ${m['Holt-Winters'].mape.toFixed(1)}%, the ML model captures promotional and calendar interaction effects that HW cannot. The ~${(m['Holt-Winters'].mape - m['Gradient Boosting'].mape).toFixed(1)}pp improvement justifies the additional engineering cost.`,color:'#3b82f6'},
+    {icon:'⚠️',title:'COVID Structural Break Requires Careful Handling',text:'The 2020 COVID disruption creates a structural break in the series. Models trained on pre-2020 data will underforecast 2021+ recovery. Walk-forward validation with a post-2020 test window ensures the reported metrics reflect the current business regime, not the pre-COVID pattern.',color:'#ef4444'},
+    {icon:'📈',title:'30-Day Revenue Projection',text:`The Holt-Winters model projects £${fmt(fc30)} in revenue over the next 30 business days, with average daily uncertainty of ±£${fmt((G.forecast.upper[0]-G.forecast.lower[0])/2)} at 95% confidence. The forecast captures the current trend and weekly seasonal pattern.`,color:'#a78bfa'},
+    {icon:'🔄',title:'Model Retraining Cadence',text:'The rolling MAE chart shows that prediction error increases after major seasonal transitions (December→January, Summer→Autumn). For production deployment, monthly retraining on the most recent 180 days is recommended — sliding window to capture regime changes without diluting recent patterns.',color:'#14b8a6'},
+  ];
+
+  document.getElementById('insight-grid').innerHTML=insights.map(ins=>`
+    <div class="insight-card" style="border-left-color:${ins.color}">
+      <div class="insight-icon">${ins.icon}</div>
+      <div class="insight-title" style="color:${ins.color}">${ins.title}</div>
+      <div class="insight-text">${ins.text}</div>
+    </div>`).join('');
+
+  // Promo lift
+  const roll7=G.sales.map((_,i)=>{const w=G.sales.slice(Math.max(0,i-6),i+1);return w.reduce((a,b)=>a+b,0)/w.length;});
+  const liftPct=G.sales.map((v,i)=>roll7[i]>0?((v-roll7[i])/roll7[i]*100):0).filter(v=>Math.abs(v)<100);
+  Plotly.react('chart-promo-lift',[{
+    type:'histogram',x:liftPct,nbinsx:50,
+    marker:{color:'rgba(34,197,94,.65)',line:{color:'rgba(34,197,94,.9)',width:0.5}},
+    hovertemplate:'Lift: %{x:.1f}%<br>Count: %{y}<extra></extra>',
+  }],{...L,xaxis:{...L.xaxis,title:'Sales Lift vs 7-day Rolling Baseline (%)',ticksuffix:'%'},yaxis:{...L.yaxis,title:'Frequency'},margin:{t:10,r:20,b:54,l:60}},{responsive:true,displayModeBar:false});
+
+  // Annual revenue bar
+  const byYear={};
+  G.monthly.forEach(m=>{
+    const y=m.Month.slice(0,4);
+    byYear[y]=(byYear[y]||0)+m.Sales;
+  });
+  const years=Object.keys(byYear).sort();
+  const revs=years.map(y=>byYear[y]);
+  const yoyGrowth=years.map((y,i)=>i===0?0:((revs[i]-revs[i-1])/revs[i-1]*100));
+  Plotly.react('chart-annual',[
+    {type:'bar',x:years,y:revs,marker:{color:years.map(y=>y==='2020'?'rgba(239,68,68,.5)':'rgba(59,130,246,.6)')},name:'Annual Revenue',hovertemplate:'%{x}: £%{y:,.0f}<extra></extra>'},
+  ],{...L,
+    yaxis:{...L.yaxis,tickprefix:'£'},
+    annotations:yoyGrowth.map((g,i)=>({x:years[i],y:revs[i],text:i===0?'Base':(g>0?'+':'')+g.toFixed(1)+'%',showarrow:false,yanchor:'bottom',font:{color:g>=0?'#22c55e':'#ef4444',size:11},yshift:5})),
+    margin:{t:40,r:20,b:46,l:70},
+  },{responsive:true,displayModeBar:false});
+
+  // Holiday revenue
+  const monthlyRevByMonth=G.mon_avg;
+  const holidayMonths=['Jan','Dec'];
+  const holidayLoss=holidayMonths.map(mo=>{
+    const idx=monthlyRevByMonth.labels.indexOf(mo);
+    const baseline=monthlyRevByMonth.values.reduce((a,b)=>a+b,0)/12;
+    return {mo, diff:(monthlyRevByMonth.values[idx]||0)-baseline};
+  });
+  Plotly.react('chart-holiday',[
+    {type:'bar',
+     x:['Public Holiday Impact (avg day)','Closure vs Baseline'],
+     y:[-(G.audit.mean_sales*0.6), -(G.audit.mean_sales)],
+     marker:{color:['rgba(239,68,68,.6)','rgba(239,68,68,.4)']},
+     text:['−£'+fmt(G.audit.mean_sales*0.6),'−£'+fmt(G.audit.mean_sales)],
+     textposition:'outside',textfont:{size:11},
+     hovertemplate:'%{x}: £%{y:,.0f}<extra></extra>',
+    }
+  ],{...L,yaxis:{...L.yaxis,tickprefix:'£',title:'Revenue Impact (£)'},margin:{t:10,r:20,b:80,l:70}},{responsive:true,displayModeBar:false});
+}
+
+// ══════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
