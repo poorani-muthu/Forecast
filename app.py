@@ -55,4 +55,5 @@ if __name__ == '__main__':
         print("  Stores  :  3 stores, 5 years of daily data")
         print("  Models  :  Holt-Winters · Gradient Boosting · Seasonal Naive")
         print("=" * 55)
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
